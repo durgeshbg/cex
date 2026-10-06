@@ -1,5 +1,6 @@
 import { PanelHeading } from "@/components/panel-heading";
-import { getMarketFixture, type Market } from "@/fixtures/market-data";
+import { getMarketFixture } from "@/fixtures/market-data";
+import type { Market } from "@/models/market";
 import { gainClass, lossClass } from "@/lib/terminal-styles";
 
 export function RecentTrades({ market }: { market: Market }) {

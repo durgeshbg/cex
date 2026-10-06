@@ -5,19 +5,18 @@ import {
   createChart,
   type UTCTimestamp,
 } from "lightweight-charts";
-import { fixtureCandles, markets } from "@/fixtures/market-data";
+import { fixtureCandles } from "@/fixtures/market-data";
+import type { Market } from "@/models/market";
 
-type CandlestickChartProps = { symbol: string; interval: string };
+type CandlestickChartProps = { market: Market; interval: string };
 
-export function CandlestickChart({ symbol, interval }: CandlestickChartProps) {
+export function CandlestickChart({ market, interval }: CandlestickChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return undefined;
-    const market = markets.find((item) => item.symbol === symbol) ?? markets[0];
-    const lastPrice = Number(market.price.replaceAll(",", ""));
-    const decimals = market.price.split(".")[1]?.length ?? 2;
+    const lastPrice = market.lastPrice;
     const intervalSeconds =
       { "1m": 60, "5m": 300, "15m": 900, "1h": 3600, "1d": 86400 }[interval] ??
       60;
@@ -48,8 +47,8 @@ export function CandlestickChart({ symbol, interval }: CandlestickChartProps) {
       wickDownColor: "#f05561",
       priceFormat: {
         type: "price",
-        precision: decimals,
-        minMove: 10 ** -decimals,
+        precision: market.pricePrecision,
+        minMove: market.priceTick,
       },
     });
     series.setData(
@@ -63,24 +62,25 @@ export function CandlestickChart({ symbol, interval }: CandlestickChartProps) {
     );
     chart.timeScale().fitContent();
 
-    const observer = new ResizeObserver(([entry]) =>
+    const observer = new ResizeObserver(([entry]) => {
       chart.applyOptions({
         width: entry.contentRect.width,
         height: entry.contentRect.height,
-      }),
-    );
+      });
+      chart.timeScale().fitContent();
+    });
     observer.observe(container);
     return () => {
       observer.disconnect();
       chart.remove();
     };
-  }, [symbol, interval]);
+  }, [market, interval]);
 
   return (
     <div
       className="h-full w-full"
       ref={containerRef}
-      aria-label={`${symbol} ${interval} fixture candlestick chart`}
+      aria-label={`${market.symbol} ${interval} fixture candlestick chart`}
     />
   );
 }

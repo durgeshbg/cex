@@ -1,6 +1,7 @@
 import { BookRows } from "@/components/book-rows";
 import { PanelHeading } from "@/components/panel-heading";
-import { getMarketFixture, type Market } from "@/fixtures/market-data";
+import { getMarketFixture } from "@/fixtures/market-data";
+import type { Market } from "@/models/market";
 
 export function OrderBook({ market }: { market: Market }) {
   const { asks, bids } = getMarketFixture(market);

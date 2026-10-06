@@ -1,55 +1,4 @@
-export type Market = {
-  symbol: string;
-  baseAsset: string;
-  price: string;
-  change: string;
-  volume: string;
-};
-
-export const markets: Market[] = [
-  {
-    symbol: "BTCUSDT",
-    baseAsset: "BTC",
-    price: "67,842.18",
-    change: "+1.42%",
-    volume: "1.84B",
-  },
-  {
-    symbol: "ETHUSDT",
-    baseAsset: "ETH",
-    price: "3,786.64",
-    change: "+0.87%",
-    volume: "912.6M",
-  },
-  {
-    symbol: "SOLUSDT",
-    baseAsset: "SOL",
-    price: "172.53",
-    change: "-0.68%",
-    volume: "428.1M",
-  },
-  {
-    symbol: "BNBUSDT",
-    baseAsset: "BNB",
-    price: "591.80",
-    change: "+0.31%",
-    volume: "116.3M",
-  },
-  {
-    symbol: "XRPUSDT",
-    baseAsset: "XRP",
-    price: "0.6184",
-    change: "-1.21%",
-    volume: "84.9M",
-  },
-  {
-    symbol: "DOGEUSDT",
-    baseAsset: "DOGE",
-    price: "0.14327",
-    change: "+2.08%",
-    volume: "71.2M",
-  },
-];
+import { formatPrice, type Market } from "@/models/market";
 
 const bookAmounts = [0.184, 0.036, 0.621, 0.097, 0.318];
 const tradeAmounts = [0.0124, 0.0861, 0.0048, 0.0302, 0.155, 0.0271];
@@ -63,21 +12,16 @@ const tradeTimes = [
 ];
 
 export function getMarketFixture(market: Market) {
-  const last = Number(market.price.replaceAll(",", ""));
-  const decimals = market.price.split(".")[1]?.length ?? 2;
-  const step = Math.max(last * 0.00001, 10 ** -decimals);
-  const formatPrice = (value: number) =>
-    value.toLocaleString("en-US", {
-      minimumFractionDigits: decimals,
-      maximumFractionDigits: decimals,
-    });
+  const last = market.lastPrice;
+  const step = market.priceTick;
   const rows = (side: "ask" | "bid") =>
     bookAmounts.map((amount, index) => {
       const price = last + (side === "ask" ? 1 : -1) * step * (index + 1);
+      const quantity = Math.max(amount, market.quantityStep);
       return {
-        price: formatPrice(price),
-        amount: amount.toFixed(3),
-        total: (price * amount).toLocaleString("en-US", {
+        price: formatPrice(price, market.pricePrecision),
+        amount: quantity.toFixed(market.quantityPrecision),
+        total: (price * quantity).toLocaleString("en-US", {
           maximumFractionDigits: 2,
         }),
       };
@@ -88,8 +32,13 @@ export function getMarketFixture(market: Market) {
     bids: rows("bid"),
     trades: tradeAmounts.map((amount, index) => ({
       time: tradeTimes[index],
-      price: formatPrice(last + (index % 2 === 0 ? 0 : -step * (index + 1))),
-      amount: amount.toFixed(4),
+      price: formatPrice(
+        last + (index % 2 === 0 ? 0 : -step * (index + 1)),
+        market.pricePrecision,
+      ),
+      amount: Math.max(amount, market.quantityStep).toFixed(
+        market.quantityPrecision,
+      ),
       side: index % 2 === 0 ? "buy" : "sell",
     })),
   };
