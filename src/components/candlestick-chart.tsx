@@ -8,11 +8,18 @@ import {
   type ISeriesApi,
 } from "lightweight-charts";
 import { Button } from "@/components/ui/button";
+import type { MarketStreamSession } from "@/api/market-stream";
 import { useKlines } from "@/hooks/use-klines";
+import { mergeChartKlines } from "@/models/klines";
 import type { Market } from "@/models/market";
 import type { Interval } from "@/store/market-store";
 
-type CandlestickChartProps = { market: Market; interval: Interval };
+type CandlestickChartProps = {
+  market: Market;
+  interval: Interval;
+  session: MarketStreamSession;
+  epoch: number;
+};
 
 function showRecentCandles(chart: IChartApi, count: number, width: number) {
   const visibleCount = Math.max(30, Math.min(120, Math.floor(width / 8)));
@@ -22,15 +29,20 @@ function showRecentCandles(chart: IChartApi, count: number, width: number) {
   });
 }
 
-export function CandlestickChart({ market, interval }: CandlestickChartProps) {
+export function CandlestickChart({ market, interval, session, epoch }: CandlestickChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candlesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeRef = useRef<ISeriesApi<"Histogram"> | null>(null);
   const barCountRef = useRef(0);
-  const klines = useKlines(market.symbol, interval);
+  const lastTimeRef = useRef<number | null>(null);
+  const syncedRef = useRef(false);
+  const klines = useKlines(market.symbol, interval, session.id, epoch);
   const data =
-    klines.data?.symbol === market.symbol && klines.data.interval === interval
+    klines.data?.symbol === market.symbol &&
+    klines.data.interval === interval &&
+    klines.data.sessionId === session.id &&
+    klines.data.epoch === epoch
       ? klines.data
       : null;
 
@@ -96,9 +108,25 @@ export function CandlestickChart({ market, interval }: CandlestickChartProps) {
       candlesRef.current = null;
       volumeRef.current = null;
       barCountRef.current = 0;
+      lastTimeRef.current = null;
+      syncedRef.current = false;
       chart.remove();
     };
   }, []);
+
+  useLayoutEffect(() => {
+    syncedRef.current = false;
+    lastTimeRef.current = null;
+    return session.subscribeCandles(({ candle, volume }) => {
+      if (!syncedRef.current || lastTimeRef.current === null || candle.time < lastTimeRef.current) return;
+      candlesRef.current?.update(candle);
+      volumeRef.current?.update(volume);
+      if (candle.time > lastTimeRef.current) {
+        lastTimeRef.current = candle.time;
+        barCountRef.current++;
+      }
+    });
+  }, [session, epoch]);
 
   useLayoutEffect(() => {
     const chart = chartRef.current;
@@ -109,6 +137,8 @@ export function CandlestickChart({ market, interval }: CandlestickChartProps) {
     candles.setData([]);
     volume.setData([]);
     barCountRef.current = 0;
+    lastTimeRef.current = null;
+    syncedRef.current = false;
     candles.applyOptions({
       priceFormat: {
         type: "price",
@@ -117,9 +147,12 @@ export function CandlestickChart({ market, interval }: CandlestickChartProps) {
       },
     });
     if (data && !klines.isError) {
-      candles.setData(data.candles);
-      volume.setData(data.volume);
-      barCountRef.current = data.candles.length;
+      const merged = mergeChartKlines(data, session.bufferedCandles());
+      candles.setData(merged.candles);
+      volume.setData(merged.volume);
+      barCountRef.current = merged.candles.length;
+      lastTimeRef.current = merged.candles.at(-1)?.time ?? null;
+      syncedRef.current = true;
       if (barCountRef.current) {
         showRecentCandles(
           chart,
@@ -135,6 +168,8 @@ export function CandlestickChart({ market, interval }: CandlestickChartProps) {
     market.priceTick,
     market.symbol,
     interval,
+    session,
+    epoch,
   ]);
 
   const loading = klines.isPending || (!data && !klines.isError);

@@ -5,6 +5,7 @@ import { MarketSidebar } from "@/components/market-sidebar";
 import { OrderBook } from "@/components/order-book";
 import { RecentTrades } from "@/components/recent-trades";
 import { useMarkets } from "@/hooks/use-markets";
+import { useActiveMarketStream } from "@/hooks/use-active-market-stream";
 import { intervals, useMarketStore } from "@/store/market-store";
 
 function App() {
@@ -17,12 +18,9 @@ function App() {
   );
   const market =
     markets.find((item) => item.symbol === selectedSymbol) ?? markets[0];
+  const stream = useActiveMarketStream(market?.symbol, selectedInterval);
   const connectionLabel =
-    status === "ready"
-      ? "REST snapshot"
-      : status === "loading"
-        ? "Loading markets"
-        : "Data unavailable";
+    stream.status[0].toUpperCase() + stream.status.slice(1);
 
   return (
     <main className="min-h-svh bg-[#090b0f] text-slate-200 [font-variant-numeric:tabular-nums] lg:grid lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[248px_minmax(0,1fr)_316px]">
@@ -35,10 +33,10 @@ function App() {
         </div>
         <div className="flex items-center gap-2 text-xs text-slate-400">
           <span
-            className={`size-2 rounded-full ${status === "ready" ? "bg-emerald-400" : status === "loading" ? "bg-amber-400" : "bg-rose-400"}`}
+            className={`size-2 rounded-full ${stream.status === "connected" ? "bg-emerald-400" : stream.status === "disconnected" ? "bg-rose-400" : "bg-amber-400"}`}
           />
           {connectionLabel}{" "}
-          <span className="hidden sm:inline">· no live feed</span>
+          <span className="hidden sm:inline">· Binance Spot stream</span>
         </div>
       </header>
 
@@ -52,7 +50,7 @@ function App() {
       />
 
       <div className="min-w-0">
-        <MarketHeader market={market} status={status} />
+        <MarketHeader market={market} status={status} ticker={stream.ticker} />
         <section className="bg-[#0d1015]">
           <div className="flex h-12 items-center justify-between border-b border-slate-800 px-3 sm:px-4">
             <div className="flex gap-1" aria-label="Chart interval">
@@ -70,18 +68,27 @@ function App() {
               ))}
             </div>
             <span className="shrink-0 text-[10px] text-slate-500">
-              <span className="hidden sm:inline">Candles · {selectedInterval} · </span>
-              REST snapshot
+              <span className="hidden sm:inline">
+                Candles · {selectedInterval} ·{" "}
+              </span>
+              {stream.status === "connected" ? "Live candles" : "REST snapshot"}
             </span>
           </div>
           <div className="h-[300px] w-full sm:h-[400px] lg:h-[calc(100svh-174px)] lg:min-h-[360px]">
-            {market ? (
-              <CandlestickChart market={market} interval={selectedInterval} />
+            {market && stream.session ? (
+              <CandlestickChart
+                market={market}
+                interval={selectedInterval}
+                session={stream.session}
+                epoch={stream.epoch}
+              />
             ) : (
               <div className="grid h-full place-items-center text-sm text-slate-500">
-                {status === "loading"
-                  ? "Waiting for market data…"
-                  : "Chart unavailable"}
+                {market
+                  ? "Connecting to market stream…"
+                  : status === "loading"
+                    ? "Waiting for market data…"
+                    : "Chart unavailable"}
               </div>
             )}
           </div>
