@@ -44,17 +44,18 @@ function App() {
       (stream.status === "disconnected" || stream.status === "reconnecting"));
 
   return (
-    <main className="min-h-svh bg-[#090b0f] text-slate-200 [font-variant-numeric:tabular-nums] lg:grid lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[248px_minmax(0,1fr)_316px]">
-      <header className="flex min-h-14 flex-wrap items-center justify-between gap-y-2 border-b border-slate-800 bg-[#0d1015] px-4 py-2 lg:col-span-2 xl:col-span-3">
-        <div className="flex items-center gap-2 text-sm font-bold text-amber-400">
-          <span className="grid size-6 place-items-center border border-amber-400 text-xs">
+    <main className="min-h-svh space-y-2 bg-background p-2 text-foreground [font-variant-numeric:tabular-nums] lg:grid lg:h-svh lg:grid-cols-[220px_minmax(0,1fr)] lg:grid-rows-[48px_minmax(0,1fr)] lg:gap-2 lg:space-y-0 lg:overflow-hidden xl:grid-cols-[248px_minmax(0,1fr)_316px]">
+      <header className="flex min-h-12 flex-wrap items-center justify-between gap-y-2 rounded-xl border border-border bg-card px-4 py-2 lg:col-span-2 xl:col-span-3">
+        <div className="flex items-center gap-2.5 text-sm font-bold tracking-tight text-foreground">
+          <span className="grid size-7 place-items-center rounded-md bg-primary text-xs font-black text-primary-foreground">
             B
           </span>
           Spot Terminal
+          <span className="rounded-md bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold tracking-wide text-primary">SPOT</span>
         </div>
         <div className="flex items-center gap-2 text-xs text-slate-400">
           <span
-            className={`size-2 rounded-full ${stream.status === "connected" ? "bg-emerald-400" : stream.status === "disconnected" ? "bg-rose-400" : "bg-amber-400"}`}
+            className={`size-2 rounded-full ${stream.status === "connected" ? "bg-emerald-400" : stream.status === "disconnected" ? "bg-rose-400" : "bg-primary"}`}
           />
           <span aria-label={offlineDemo ? "Offline fixture demo" : `Binance Spot stream ${stream.status}`}>
             {offlineDemo ? "Offline fixture demo" : connectionLabel}
@@ -74,7 +75,7 @@ function App() {
       </header>
 
       <nav
-        className="grid grid-cols-4 border-b border-slate-800 bg-[#0d1015] lg:hidden"
+        className="grid grid-cols-4 rounded-xl border border-border bg-card p-1 lg:hidden"
         aria-label="Terminal panels"
       >
         {(["markets", "chart", "book", "trades"] as const).map((panel) => (
@@ -84,14 +85,14 @@ function App() {
             size="sm"
             aria-pressed={mobilePanel === panel}
             onClick={() => setMobilePanel(panel)}
-            className={`rounded-none capitalize ${mobilePanel === panel ? "border-b border-amber-400 text-amber-400" : "text-slate-400"}`}
+            className={`capitalize ${mobilePanel === panel ? "bg-primary/15 text-primary" : "text-muted-foreground"}`}
           >
             {panel}
           </Button>
         ))}
       </nav>
 
-      <div className={`min-w-0 ${mobilePanel === "markets" ? "block" : "hidden"} lg:block`}>
+      <div className={`min-w-0 overflow-hidden rounded-xl border border-border bg-card lg:min-h-0 ${mobilePanel === "markets" ? "block" : "hidden"} lg:block`}>
         <MarketSidebar
           markets={availableMarkets}
           selectedSymbol={market?.symbol ?? selectedSymbol}
@@ -105,15 +106,15 @@ function App() {
         />
       </div>
 
-      <div className={`min-w-0 ${mobilePanel === "chart" ? "block" : "hidden"} lg:block`}>
+      <div className={`min-w-0 overflow-hidden rounded-xl border border-border bg-card lg:min-h-0 lg:flex-col ${mobilePanel === "chart" ? "block" : "hidden"} lg:flex`}>
         <MarketHeader
           market={market}
           status={offlineDemo ? "ready" : status}
           ticker={stream.ticker}
           demo={offlineDemo}
         />
-        <section className="bg-[#0d1015]">
-          <div className="flex h-12 items-center justify-between border-b border-slate-800 px-3 sm:px-4">
+        <section className="flex min-h-0 flex-col bg-card lg:flex-1">
+          <div className="flex h-12 shrink-0 items-center justify-between border-b border-border px-3 sm:px-4">
             <div className="flex gap-1" aria-label="Chart interval">
               {intervals.map((interval) => (
                 <Button
@@ -122,7 +123,7 @@ function App() {
                   size="sm"
                   aria-pressed={selectedInterval === interval}
                   onClick={() => setSelectedInterval(interval)}
-                  className={`min-w-9 px-2 text-xs hover:bg-amber-400/10 hover:text-amber-400 ${selectedInterval === interval ? "bg-amber-400/10 text-amber-400" : "text-slate-400"}`}
+                  className={`min-w-9 px-2 text-xs hover:bg-primary/10 hover:text-primary ${selectedInterval === interval ? "bg-primary/15 text-primary" : "text-muted-foreground"}`}
                 >
                   {interval}
                 </Button>
@@ -139,7 +140,7 @@ function App() {
                   : "REST snapshot"}
             </span>
           </div>
-          <div className="h-[300px] w-full sm:h-[400px] lg:h-[calc(100svh-174px)] lg:min-h-[360px]">
+          <div className="h-[calc(100svh-260px)] min-h-[320px] w-full sm:h-[440px] lg:min-h-0 lg:flex-1">
             {market && (offlineDemo || stream.session?.interval === selectedInterval) ? (
               <CandlestickChart
                 market={market}
@@ -164,10 +165,10 @@ function App() {
         </section>
       </div>
 
-      <div className={`min-h-[calc(100svh-85px)] min-w-0 grid-cols-1 border-t border-slate-800 lg:col-span-2 lg:grid lg:min-h-0 lg:grid-cols-2 xl:col-span-1 xl:h-[calc(100svh-56px)] xl:grid-cols-1 xl:grid-rows-[minmax(0,2fr)_minmax(0,1fr)] xl:overflow-hidden xl:border-t-0 xl:border-l ${mobilePanel === "book" || mobilePanel === "trades" ? "grid" : "hidden"}`}>
+      <div className={`min-h-[calc(100svh-85px)] min-w-0 grid-cols-1 gap-2 lg:col-span-2 lg:grid lg:min-h-0 lg:grid-cols-2 xl:col-span-1 xl:h-full xl:grid-cols-1 xl:grid-rows-[minmax(0,1.8fr)_minmax(0,1fr)] xl:overflow-hidden ${mobilePanel === "book" || mobilePanel === "trades" ? "grid" : "hidden"}`}>
         {market ? (
           <>
-            <div className={`min-h-0 ${mobilePanel === "book" ? "block" : "hidden"} lg:block`}>
+            <div className={`min-h-0 overflow-hidden rounded-xl border border-border bg-card ${mobilePanel === "book" ? "block" : "hidden"} lg:block`}>
               <OrderBook
                 market={market}
                 sessionId={stream.session?.id}
@@ -176,7 +177,7 @@ function App() {
                 demo={offlineDemo}
               />
             </div>
-            <div className={`min-h-0 ${mobilePanel === "trades" ? "block" : "hidden"} lg:block`}>
+            <div className={`min-h-0 overflow-hidden rounded-xl border border-border bg-card ${mobilePanel === "trades" ? "block" : "hidden"} lg:block`}>
               <RecentTrades
                 market={market}
                 session={offlineDemo ? null : stream.session}

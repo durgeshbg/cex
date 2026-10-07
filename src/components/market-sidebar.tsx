@@ -50,7 +50,7 @@ export function MarketSidebar({
   );
 
   return (
-    <aside className="flex min-h-0 flex-col border-b border-slate-800 bg-[#0d1015] lg:h-[calc(100svh-56px)] lg:border-r lg:border-b-0">
+    <aside className="flex min-h-0 flex-col bg-card lg:h-full">
       <div className="flex items-start justify-between px-4 pt-4 pb-3">
         <div>
           <p className={labelClass}>Markets</p>
@@ -58,7 +58,7 @@ export function MarketSidebar({
             USDT pairs
           </h2>
         </div>
-        <span className="rounded border border-emerald-800/70 bg-emerald-500/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
+        <span className="rounded-md border border-emerald-400/20 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-semibold text-emerald-400">
           Spot
         </span>
       </div>
@@ -72,7 +72,7 @@ export function MarketSidebar({
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           placeholder="Search markets"
-          className="h-9 border-slate-700 bg-[#151920] pl-8 text-xs text-slate-100 placeholder:text-slate-500"
+          className="h-9 border-border bg-muted pl-8 text-xs text-foreground placeholder:text-muted-foreground"
         />
       </label>
       <div className="flex gap-1 px-3 pb-3">
@@ -113,15 +113,15 @@ export function MarketSidebar({
           </div>
         )}
         {visibleMarkets.map((market) => (
-          <div key={market.symbol} className="relative min-w-0">
+          <div key={market.symbol} className="relative min-w-0 px-2 py-0.5">
           <Button
             variant="ghost"
             size="lg"
             onClick={() => onSelect(market.symbol)}
             aria-pressed={market.symbol === selectedSymbol}
-            className={`h-auto w-full justify-start rounded-none border-l-2 py-3 pr-9 pl-3 text-left hover:bg-slate-800/60 sm:pl-4 ${
+            className={`h-auto w-full justify-start rounded-lg py-2.5 pr-9 pl-2.5 text-left hover:bg-muted ${
               market.symbol === selectedSymbol
-                ? "border-amber-400 bg-slate-800/70"
+                ? "border-primary/30 bg-primary/12"
                 : "border-transparent"
             }`}
           >
@@ -148,9 +148,9 @@ export function MarketSidebar({
             aria-label={`${favorites.includes(market.symbol) ? "Remove" : "Add"} ${market.baseAsset}/USDT ${favorites.includes(market.symbol) ? "from" : "to"} favorites`}
             aria-pressed={favorites.includes(market.symbol)}
             onClick={() => toggleFavorite(market.symbol)}
-            className="absolute top-1/2 right-1 -translate-y-1/2 text-slate-500 hover:text-amber-400"
+            className="absolute top-1/2 right-3 -translate-y-1/2 text-slate-500 hover:text-primary"
           >
-            <Star className={`size-3.5 ${favorites.includes(market.symbol) ? "fill-amber-400 text-amber-400" : ""}`} />
+            <Star className={`size-3.5 ${favorites.includes(market.symbol) ? "fill-primary text-primary" : ""}`} />
           </Button>
           </div>
         ))}

@@ -22,7 +22,7 @@ export function OrderBook({ market, sessionId, epoch, connectionStatus, demo = f
       ? activeBook.snapshot
       : null;
   return (
-    <section className="flex h-full min-h-0 min-w-0 flex-col border-b border-slate-800 bg-[#0d1015] lg:border-b-0 xl:border-b">
+    <section className="flex h-full min-h-0 min-w-0 flex-col bg-card">
       <div className="px-4 pt-4 pb-3">
         <p className="text-[10px] uppercase tracking-widest text-slate-500">
           {demo ? "Offline fixture data" : "Binance Spot · partial depth"}
@@ -37,7 +37,7 @@ export function OrderBook({ market, sessionId, epoch, connectionStatus, demo = f
       {book ? (
         <>
           <BookRows rows={book.asks} side="ask" market={market} />
-          <div className="my-2 border-y border-slate-800 px-4 py-2 text-xs text-slate-300 tabular-nums">
+          <div className="my-2 border-y border-border bg-muted/40 px-4 py-2 text-xs text-slate-300 tabular-nums">
             Spread {book.spread === null ? "—" : formatPrice(book.spread, market.pricePrecision)}
             {book.spreadPercent !== null && ` (${book.spreadPercent.toFixed(3)}%)`}
           </div>

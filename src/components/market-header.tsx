@@ -25,14 +25,14 @@ export function MarketHeader({
       }).format(live.quoteVolume)
     : market?.volume;
   return (
-    <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4 border-b border-slate-800 bg-[#0b0e13] px-4 py-4 sm:px-5">
+    <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4 border-b border-border bg-card px-4 py-4 sm:px-5">
       <div>
         <p className={labelClass}>
           {demo
             ? "Offline fixture demo"
             : "Spot · Binance " + (live ? "live ticker" : "REST snapshot")}
         </p>
-        <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-100">
+        <h1 className="mt-1 text-xl font-semibold tracking-tight text-foreground">
           {market ? (
             <>
               {market.baseAsset}

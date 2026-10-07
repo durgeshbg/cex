@@ -63,7 +63,7 @@ export function CandlestickChart({
       ? klines.data
       : null;
   const data = useMemo(
-    () => demo ? getDemoKlines(market, interval) : queryData,
+    () => (demo ? getDemoKlines(market, interval) : queryData),
     [demo, market, interval, queryData],
   );
 
@@ -75,19 +75,19 @@ export function CandlestickChart({
       width: container.clientWidth,
       height: container.clientHeight,
       layout: {
-        background: { type: ColorType.Solid, color: "#0d1015" },
-        textColor: "#657083",
+        background: { type: ColorType.Solid, color: "#15171e" },
+        textColor: "#8a93a3",
         attributionLogo: true,
       },
       grid: {
-        vertLines: { color: "#222834" },
-        horzLines: { color: "#222834" },
+        vertLines: { color: "#252932" },
+        horzLines: { color: "#252932" },
       },
-      rightPriceScale: { borderColor: "#20242c" },
-      timeScale: { borderColor: "#20242c", timeVisible: true },
+      rightPriceScale: { borderColor: "#292d37" },
+      timeScale: { borderColor: "#292d37", timeVisible: true },
       crosshair: {
-        vertLine: { color: "#3b4453" },
-        horzLine: { color: "#3b4453" },
+        vertLine: { color: "#4b5668" },
+        horzLine: { color: "#4b5668" },
       },
     });
     const candles = chart.addSeries(CandlestickSeries, {
@@ -124,7 +124,8 @@ export function CandlestickChart({
     let observer: ResizeObserver | null = null;
     if (typeof ResizeObserver !== "undefined") {
       observer = new ResizeObserver(([entry]) => {
-        if (entry) resizeChart(entry.contentRect.width, entry.contentRect.height);
+        if (entry)
+          resizeChart(entry.contentRect.width, entry.contentRect.height);
       });
       observer.observe(container);
     } else {
@@ -149,7 +150,12 @@ export function CandlestickChart({
     lastTimeRef.current = null;
     if (!session) return;
     return session.subscribeCandles(({ candle, volume }) => {
-      if (!syncedRef.current || lastTimeRef.current === null || candle.time < lastTimeRef.current) return;
+      if (
+        !syncedRef.current ||
+        lastTimeRef.current === null ||
+        candle.time < lastTimeRef.current
+      )
+        return;
       candlesRef.current?.update(candle);
       volumeRef.current?.update(volume);
       if (candle.time > lastTimeRef.current) {
@@ -179,7 +185,9 @@ export function CandlestickChart({
     });
     if (data && (demo || !klines.isError)) {
       const merged =
-        demo || !session ? data : mergeChartKlines(data, session.bufferedCandles());
+        demo || !session
+          ? data
+          : mergeChartKlines(data, session.bufferedCandles());
       candles.setData(merged.candles);
       volume.setData(merged.volume);
       barCountRef.current = merged.candles.length;
@@ -227,7 +235,7 @@ export function CandlestickChart({
         )}
         {(loading || (!demo && klines.isError) || empty) && (
           <div
-            className="absolute inset-0 grid place-content-center gap-3 bg-[#0d1015] px-4 text-center text-sm text-slate-400"
+            className="absolute inset-0 grid place-content-center gap-3 bg-card px-4 text-center text-sm text-slate-400"
             role="status"
           >
             <p>
@@ -254,14 +262,6 @@ export function CandlestickChart({
           </div>
         )}
       </div>
-      <a
-        href="https://www.tradingview.com/"
-        target="_blank"
-        rel="noreferrer"
-        className="shrink-0 border-t border-slate-800 px-3 py-1 text-[10px] text-slate-500 hover:text-slate-300"
-      >
-        TradingView Lightweight Charts™ · © 2025 TradingView, Inc.
-      </a>
     </div>
   );
 }

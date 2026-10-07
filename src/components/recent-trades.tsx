@@ -28,7 +28,7 @@ export function RecentTrades({ market, session, epoch, demo = false, connectionS
   }, [session, seed.data, epoch]);
 
   return (
-    <section className="flex h-full min-h-0 min-w-0 flex-col bg-[#0d1015]">
+    <section className="flex h-full min-h-0 min-w-0 flex-col bg-card">
       <div className="px-4 pt-4 pb-3">
         <p className="text-[10px] uppercase tracking-widest text-slate-500">
           {demo ? "Offline fixture data" : "Binance Spot · public trades"}

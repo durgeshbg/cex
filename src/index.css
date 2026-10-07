@@ -8,25 +8,31 @@
 :root {
   font-family: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
   color-scheme: dark;
-  --background: #090b0f;
-  --foreground: #e2e8f0;
-  --primary: #fbbf24;
-  --primary-foreground: #111827;
-  --muted: #1e293b;
-  --muted-foreground: #94a3b8;
-  --input: #334155;
-  --ring: #fbbf24;
-  --border: #1e293b;
+  --background: #0c0e13;
+  --card: #15171e;
+  --foreground: #e8ecf5;
+  --primary: #4d8dff;
+  --primary-foreground: #08111f;
+  --secondary: #252932;
+  --secondary-foreground: #e8ecf5;
+  --muted: #22252e;
+  --muted-foreground: #9ca5b5;
+  --input: #343946;
+  --ring: #4d8dff;
+  --border: #292d37;
   --destructive: #fb7185;
-  --radius: 0.5rem;
+  --radius: 0.625rem;
 }
 
 @theme inline {
   --font-sans: "Geist Variable", ui-sans-serif, system-ui, sans-serif;
   --color-background: var(--background);
+  --color-card: var(--card);
   --color-foreground: var(--foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
   --color-input: var(--input);
