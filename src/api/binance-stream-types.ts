@@ -29,5 +29,13 @@ export const tickerEventSchema = z.object({
   q: z.string(),
 });
 
+// Partial depth is a complete top-20 snapshot, not a depthUpdate delta.
+export const partialDepthSchema = z.object({
+  lastUpdateId: z.number(),
+  bids: z.array(z.tuple([z.string(), z.string()])),
+  asks: z.array(z.tuple([z.string(), z.string()])),
+});
+
 export type BinanceKlineEvent = z.infer<typeof klineEventSchema>;
 export type BinanceTickerEvent = z.infer<typeof tickerEventSchema>;
+export type BinancePartialDepth = z.infer<typeof partialDepthSchema>;

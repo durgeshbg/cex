@@ -1,33 +1,36 @@
-import { getMarketFixture } from "@/fixtures/market-data";
 import { gainClass, lossClass } from "@/lib/terminal-styles";
+import { formatPrice, type Market } from "@/models/market";
+import type { BookLevel } from "@/models/order-book";
 
 type BookRowsProps = {
-  rows: ReturnType<typeof getMarketFixture>["asks"];
+  rows: BookLevel[];
   side: "ask" | "bid";
+  market: Market;
 };
 
-export function BookRows({ rows, side }: BookRowsProps) {
+export function BookRows({ rows, side, market }: BookRowsProps) {
+  const maxCumulative = rows.at(-1)?.cumulativeQuantity ?? 0;
   return (
-    <div className="space-y-0.5">
-      {rows.map((row, index) => (
+    <div className="max-h-48 min-h-0 overflow-y-auto xl:max-h-none xl:flex-1">
+      {rows.map((row) => (
         <div
-          key={`${side}-${index}`}
+          key={row.price}
           className="relative grid grid-cols-[1.2fr_.8fr_1fr] gap-2 px-4 py-1 text-[11px] tabular-nums"
         >
           <span
             className={`absolute inset-y-0 right-0 ${side === "ask" ? "bg-rose-400/10" : "bg-emerald-400/10"}`}
-            style={{ width: `${32 + index * 12}%` }}
+            style={{ width: `${maxCumulative ? row.cumulativeQuantity / maxCumulative * 100 : 0}%` }}
           />
           <span
             className={`relative ${side === "ask" ? lossClass : gainClass}`}
           >
-            {row.price}
+            {formatPrice(row.price, market.pricePrecision)}
           </span>
           <span className="relative text-right text-slate-300">
-            {row.amount}
+            {formatPrice(row.quantity, market.quantityPrecision)}
           </span>
           <span className="relative text-right text-slate-400">
-            {row.total}
+            {formatPrice(row.cumulativeQuantity, market.quantityPrecision)}
           </span>
         </div>
       ))}

@@ -95,15 +95,20 @@ function App() {
         </section>
       </div>
 
-      <div className="grid min-w-0 grid-cols-1 border-t border-slate-800 sm:grid-cols-2 lg:col-span-2 xl:col-span-1 xl:grid-cols-1 xl:grid-rows-2 xl:border-t-0 xl:border-l">
+      <div className="grid min-w-0 grid-cols-1 border-t border-slate-800 sm:grid-cols-2 lg:col-span-2 xl:col-span-1 xl:h-[calc(100svh-56px)] xl:grid-cols-1 xl:grid-rows-[minmax(0,2fr)_minmax(0,1fr)] xl:overflow-hidden xl:border-t-0 xl:border-l">
         {market ? (
           <>
-            <OrderBook market={market} />
+            <OrderBook
+              market={market}
+              sessionId={stream.session?.id}
+              epoch={stream.epoch}
+              connectionStatus={stream.status}
+            />
             <RecentTrades market={market} />
           </>
         ) : (
           <p className="p-4 text-xs text-slate-500">
-            Fixture book and trades appear when a market is available.
+            Book and trades appear when a market is available.
           </p>
         )}
       </div>

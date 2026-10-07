@@ -1,10 +1,13 @@
 import {
   combinedEnvelopeSchema,
   klineEventSchema,
+  partialDepthSchema,
   tickerEventSchema,
 } from "@/api/binance-stream-types";
 import { toStreamCandle, type StreamCandle } from "@/models/klines";
+import { toBookSnapshot } from "@/models/order-book";
 import { toLiveTicker, type LiveTicker } from "@/models/ticker";
+import { clearOrderBook, queueOrderBook } from "@/store/order-book-store";
 import type { Interval } from "@/store/market-store";
 
 export type ConnectionStatus =
@@ -68,6 +71,7 @@ export class MarketStreamSession {
     }
     this.buffered.clear();
     this.candleListeners.clear();
+    clearOrderBook();
     this.status = "disconnected";
   }
 
@@ -78,7 +82,7 @@ export class MarketStreamSession {
     this.notify();
 
     const name = this.symbol.toLowerCase();
-    const streams = `${name}@kline_${this.interval}/${name}@ticker`;
+    const streams = `${name}@kline_${this.interval}/${name}@ticker/${name}@depth20@100ms`;
     let socket: WebSocket;
     try {
       socket = new WebSocket(
@@ -116,6 +120,7 @@ export class MarketStreamSession {
       this.openedAt = 0;
       this.buffered.clear();
       this.ticker = null;
+      clearOrderBook();
       this.status = "reconnecting";
       this.notify();
       this.scheduleReconnect();
@@ -175,6 +180,14 @@ export class MarketStreamSession {
       }
       this.ticker = ticker;
       this.notify();
+    } else if (envelope.data.stream === `${name}@depth20@100ms`) {
+      const depth = partialDepthSchema.safeParse(envelope.data.data);
+      if (!depth.success) return;
+      queueOrderBook({
+        sessionId: this.id,
+        epoch: this.epoch,
+        snapshot: toBookSnapshot(depth.data),
+      });
     }
   }
 
