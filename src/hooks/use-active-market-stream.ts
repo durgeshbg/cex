@@ -17,8 +17,7 @@ export function useActiveMarketStream(
     return marketStreamManager.acquire(symbol, interval);
   }, [symbol, interval]);
 
-  return snapshot.session?.symbol === symbol &&
-    snapshot.session?.interval === interval
+  return snapshot.session?.symbol === symbol
     ? snapshot
     : disconnectedStream;
 }

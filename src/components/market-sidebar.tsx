@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Search } from "lucide-react";
+import { Search, Star } from "lucide-react";
 import { BinanceHttpError } from "@/api/binance-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { gainClass, labelClass, lossClass } from "@/lib/terminal-styles";
 import type { Market } from "@/models/market";
+import { useMarketStore } from "@/store/market-store";
 
 type MarketSidebarProps = {
   markets: Market[];
@@ -24,7 +25,10 @@ export function MarketSidebar({
   onRetry,
 }: MarketSidebarProps) {
   const [search, setSearch] = useState("");
+  const [favoritesOnly, setFavoritesOnly] = useState(false);
   const [now, setNow] = useState(0);
+  const favorites = useMarketStore((state) => state.favorites);
+  const toggleFavorite = useMarketStore((state) => state.toggleFavorite);
   const retryAt = error instanceof BinanceHttpError ? error.retryAt : null;
   const waitSeconds =
     retryAt && now ? Math.max(0, Math.ceil((retryAt - now) / 1000)) : 0;
@@ -40,7 +44,9 @@ export function MarketSidebar({
   }, [retryAt]);
 
   const visibleMarkets = markets.filter((market) =>
-    market.symbol.toLowerCase().includes(search.trim().toLowerCase()),
+    (!favoritesOnly || favorites.includes(market.symbol)) &&
+    `${market.baseAsset}/${market.quoteAsset} ${market.symbol}`.toLowerCase()
+      .includes(search.trim().toLowerCase()),
   );
 
   return (
@@ -69,6 +75,14 @@ export function MarketSidebar({
           className="h-9 border-slate-700 bg-[#151920] pl-8 text-xs text-slate-100 placeholder:text-slate-500"
         />
       </label>
+      <div className="flex gap-1 px-3 pb-3">
+        <Button variant={favoritesOnly ? "ghost" : "secondary"} size="sm"
+          aria-pressed={!favoritesOnly} onClick={() => setFavoritesOnly(false)}>All</Button>
+        <Button variant={favoritesOnly ? "secondary" : "ghost"} size="sm"
+          aria-pressed={favoritesOnly} onClick={() => setFavoritesOnly(true)}>
+          <Star className="size-3" /> Favorites ({favorites.length})
+        </Button>
+      </div>
       <div className="hidden grid-cols-[1fr_1fr_56px] gap-1 px-4 pb-2 text-[10px] text-slate-500 sm:grid">
         <span>Pair</span>
         <span className="text-right">Last price</span>
@@ -99,13 +113,13 @@ export function MarketSidebar({
           </div>
         )}
         {visibleMarkets.map((market) => (
+          <div key={market.symbol} className="relative min-w-0">
           <Button
-            key={market.symbol}
             variant="ghost"
             size="lg"
             onClick={() => onSelect(market.symbol)}
             aria-pressed={market.symbol === selectedSymbol}
-            className={`h-auto w-full justify-start rounded-none border-l-2 px-3 py-3 text-left hover:bg-slate-800/60 sm:px-4 ${
+            className={`h-auto w-full justify-start rounded-none border-l-2 py-3 pr-9 pl-3 text-left hover:bg-slate-800/60 sm:pl-4 ${
               market.symbol === selectedSymbol
                 ? "border-amber-400 bg-slate-800/70"
                 : "border-transparent"
@@ -128,6 +142,17 @@ export function MarketSidebar({
               </span>
             </span>
           </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={`${favorites.includes(market.symbol) ? "Remove" : "Add"} ${market.baseAsset}/USDT ${favorites.includes(market.symbol) ? "from" : "to"} favorites`}
+            aria-pressed={favorites.includes(market.symbol)}
+            onClick={() => toggleFavorite(market.symbol)}
+            className="absolute top-1/2 right-1 -translate-y-1/2 text-slate-500 hover:text-amber-400"
+          >
+            <Star className={`size-3.5 ${favorites.includes(market.symbol) ? "fill-amber-400 text-amber-400" : ""}`} />
+          </Button>
+          </div>
         ))}
         {status === "empty" && (
           <p className="col-span-full px-4 py-6 text-center text-xs text-slate-500">
@@ -136,7 +161,7 @@ export function MarketSidebar({
         )}
         {status === "ready" && visibleMarkets.length === 0 && (
           <p className="col-span-full px-4 py-6 text-center text-xs text-slate-500">
-            No matching markets.
+            {favoritesOnly && favorites.length === 0 ? "No favorites yet. Star a market from All." : "No matching markets."}
           </p>
         )}
       </div>

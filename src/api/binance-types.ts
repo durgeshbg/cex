@@ -45,6 +45,15 @@ export const klinesSchema = z.array(
   ]),
 );
 
+export const recentTradesSchema = z.array(z.object({
+  id: z.number(),
+  price: z.string(),
+  qty: z.string(),
+  time: z.number(),
+  isBuyerMaker: z.boolean(),
+}));
+
 export type BinanceExchangeInfo = z.infer<typeof exchangeInfoSchema>;
 export type BinanceTicker24hr = z.infer<typeof tickers24hrSchema>[number];
 export type BinanceKline = z.infer<typeof klinesSchema>[number];
+export type BinanceRecentTrade = z.infer<typeof recentTradesSchema>[number];

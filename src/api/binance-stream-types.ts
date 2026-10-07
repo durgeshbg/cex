@@ -36,6 +36,17 @@ export const partialDepthSchema = z.object({
   asks: z.array(z.tuple([z.string(), z.string()])),
 });
 
+export const tradeEventSchema = z.object({
+  e: z.literal("trade"),
+  s: z.string(),
+  t: z.number(),
+  p: z.string(),
+  q: z.string(),
+  T: z.number(),
+  m: z.boolean(),
+});
+
 export type BinanceKlineEvent = z.infer<typeof klineEventSchema>;
 export type BinanceTickerEvent = z.infer<typeof tickerEventSchema>;
 export type BinancePartialDepth = z.infer<typeof partialDepthSchema>;
+export type BinanceTradeEvent = z.infer<typeof tradeEventSchema>;

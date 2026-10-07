@@ -18,7 +18,7 @@ export function OrderBook({ market, sessionId, epoch, connectionStatus }: OrderB
       ? activeBook.snapshot
       : null;
   return (
-    <section className="flex min-h-0 min-w-0 flex-col border-b border-slate-800 bg-[#0d1015] lg:border-b-0 xl:border-b">
+    <section className="flex h-full min-h-0 min-w-0 flex-col border-b border-slate-800 bg-[#0d1015] lg:border-b-0 xl:border-b">
       <div className="px-4 pt-4 pb-3">
         <p className="text-[10px] uppercase tracking-widest text-slate-500">Binance Spot · partial depth</p>
         <h2 className="mt-1 text-sm font-semibold text-slate-100">Order book · Top 20 levels</h2>

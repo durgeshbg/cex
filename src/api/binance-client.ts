@@ -1,6 +1,7 @@
 import {
   exchangeInfoSchema,
   klinesSchema,
+  recentTradesSchema,
   tickers24hrSchema,
 } from "@/api/binance-types";
 import type { Interval } from "@/store/market-store";
@@ -86,4 +87,9 @@ export async function getKlines(
 ) {
   const params = new URLSearchParams({ symbol, interval, limit: "500" });
   return klinesSchema.parse(await getJson(`/api/v3/klines?${params}`, signal));
+}
+
+export async function getRecentTrades(symbol: string, signal: AbortSignal) {
+  const params = new URLSearchParams({ symbol, limit: "100" });
+  return recentTradesSchema.parse(await getJson(`/api/v3/trades?${params}`, signal));
 }

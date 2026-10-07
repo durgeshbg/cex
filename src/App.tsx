@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CandlestickChart } from "@/components/candlestick-chart";
 import { MarketHeader } from "@/components/market-header";
@@ -9,6 +10,9 @@ import { useActiveMarketStream } from "@/hooks/use-active-market-stream";
 import { intervals, useMarketStore } from "@/store/market-store";
 
 function App() {
+  const [mobilePanel, setMobilePanel] = useState<
+    "markets" | "chart" | "book" | "trades"
+  >("chart");
   const { markets, status, error, retry } = useMarkets();
   const selectedSymbol = useMarketStore((state) => state.selectedSymbol);
   const selectedInterval = useMarketStore((state) => state.selectedInterval);
@@ -16,8 +20,14 @@ function App() {
   const setSelectedInterval = useMarketStore(
     (state) => state.setSelectedInterval,
   );
+  const reconcileMarkets = useMarketStore((state) => state.reconcileMarkets);
+  useEffect(() => {
+    if (status === "ready") reconcileMarkets(markets.map((item) => item.symbol));
+  }, [status, markets, reconcileMarkets]);
   const market =
-    markets.find((item) => item.symbol === selectedSymbol) ?? markets[0];
+    markets.find((item) => item.symbol === selectedSymbol) ??
+    markets.find((item) => item.symbol === "BTCUSDT") ??
+    markets[0];
   const stream = useActiveMarketStream(market?.symbol, selectedInterval);
   const connectionLabel =
     stream.status[0].toUpperCase() + stream.status.slice(1);
@@ -40,16 +50,39 @@ function App() {
         </div>
       </header>
 
-      <MarketSidebar
-        markets={markets}
-        selectedSymbol={market?.symbol ?? selectedSymbol}
-        onSelect={setSelectedSymbol}
-        status={status}
-        error={error}
-        onRetry={retry}
-      />
+      <nav
+        className="grid grid-cols-4 border-b border-slate-800 bg-[#0d1015] lg:hidden"
+        aria-label="Terminal panels"
+      >
+        {(["markets", "chart", "book", "trades"] as const).map((panel) => (
+          <Button
+            key={panel}
+            variant="ghost"
+            size="sm"
+            aria-pressed={mobilePanel === panel}
+            onClick={() => setMobilePanel(panel)}
+            className={`rounded-none capitalize ${mobilePanel === panel ? "border-b border-amber-400 text-amber-400" : "text-slate-400"}`}
+          >
+            {panel}
+          </Button>
+        ))}
+      </nav>
 
-      <div className="min-w-0">
+      <div className={`min-w-0 ${mobilePanel === "markets" ? "block" : "hidden"} lg:block`}>
+        <MarketSidebar
+          markets={markets}
+          selectedSymbol={market?.symbol ?? selectedSymbol}
+          onSelect={(symbol) => {
+            setSelectedSymbol(symbol);
+            setMobilePanel("chart");
+          }}
+          status={status}
+          error={error}
+          onRetry={retry}
+        />
+      </div>
+
+      <div className={`min-w-0 ${mobilePanel === "chart" ? "block" : "hidden"} lg:block`}>
         <MarketHeader market={market} status={status} ticker={stream.ticker} />
         <section className="bg-[#0d1015]">
           <div className="flex h-12 items-center justify-between border-b border-slate-800 px-3 sm:px-4">
@@ -75,7 +108,7 @@ function App() {
             </span>
           </div>
           <div className="h-[300px] w-full sm:h-[400px] lg:h-[calc(100svh-174px)] lg:min-h-[360px]">
-            {market && stream.session ? (
+            {market && stream.session?.interval === selectedInterval ? (
               <CandlestickChart
                 market={market}
                 interval={selectedInterval}
@@ -85,7 +118,9 @@ function App() {
             ) : (
               <div className="grid h-full place-items-center text-sm text-slate-500">
                 {market
-                  ? "Connecting to market stream…"
+                  ? stream.session
+                    ? "Switching chart interval…"
+                    : "Connecting to market stream…"
                   : status === "loading"
                     ? "Waiting for market data…"
                     : "Chart unavailable"}
@@ -95,16 +130,20 @@ function App() {
         </section>
       </div>
 
-      <div className="grid min-w-0 grid-cols-1 border-t border-slate-800 sm:grid-cols-2 lg:col-span-2 xl:col-span-1 xl:h-[calc(100svh-56px)] xl:grid-cols-1 xl:grid-rows-[minmax(0,2fr)_minmax(0,1fr)] xl:overflow-hidden xl:border-t-0 xl:border-l">
+      <div className={`min-h-[calc(100svh-85px)] min-w-0 grid-cols-1 border-t border-slate-800 lg:col-span-2 lg:grid lg:min-h-0 lg:grid-cols-2 xl:col-span-1 xl:h-[calc(100svh-56px)] xl:grid-cols-1 xl:grid-rows-[minmax(0,2fr)_minmax(0,1fr)] xl:overflow-hidden xl:border-t-0 xl:border-l ${mobilePanel === "book" || mobilePanel === "trades" ? "grid" : "hidden"}`}>
         {market ? (
           <>
-            <OrderBook
-              market={market}
-              sessionId={stream.session?.id}
-              epoch={stream.epoch}
-              connectionStatus={stream.status}
-            />
-            <RecentTrades market={market} />
+            <div className={`min-h-0 ${mobilePanel === "book" ? "block" : "hidden"} lg:block`}>
+              <OrderBook
+                market={market}
+                sessionId={stream.session?.id}
+                epoch={stream.epoch}
+                connectionStatus={stream.status}
+              />
+            </div>
+            <div className={`min-h-0 ${mobilePanel === "trades" ? "block" : "hidden"} lg:block`}>
+              <RecentTrades market={market} session={stream.session} epoch={stream.epoch} />
+            </div>
           </>
         ) : (
           <p className="p-4 text-xs text-slate-500">

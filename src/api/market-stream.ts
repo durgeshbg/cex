@@ -3,11 +3,14 @@ import {
   klineEventSchema,
   partialDepthSchema,
   tickerEventSchema,
+  tradeEventSchema,
 } from "@/api/binance-stream-types";
 import { toStreamCandle, type StreamCandle } from "@/models/klines";
 import { toBookSnapshot } from "@/models/order-book";
 import { toLiveTicker, type LiveTicker } from "@/models/ticker";
+import { fromStreamTrade, mergeTrades, type Trade } from "@/models/trades";
 import { clearOrderBook, queueOrderBook } from "@/store/order-book-store";
+import { clearTrades, queueTrades } from "@/store/trades-store";
 import type { Interval } from "@/store/market-store";
 
 export type ConnectionStatus =
@@ -21,29 +24,70 @@ let nextSessionId = 1;
 export class MarketStreamSession {
   readonly id = nextSessionId++;
   readonly symbol: string;
-  readonly interval: Interval;
+  interval: Interval;
   status: ConnectionStatus = "connecting";
   ticker: LiveTicker | null = null;
   epoch = 0;
 
   private socket: WebSocket | null = null;
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+  private intervalTimer: ReturnType<typeof setTimeout> | null = null;
+  private subscribedInterval: Interval;
   private generation = 0;
   private attempts = 0;
   private openedAt = 0;
   private disposed = false;
   private readonly buffered = new Map<number, StreamCandle>();
+  private bufferedTrades: Trade[] = [];
+  private trades: Trade[] = [];
+  private tradesHydrated = false;
+  private commandId = 0;
   private readonly candleListeners = new Set<(candle: StreamCandle) => void>();
   private readonly notify: () => void;
 
   constructor(symbol: string, interval: Interval, notify: () => void) {
     this.symbol = symbol;
     this.interval = interval;
+    this.subscribedInterval = interval;
     this.notify = notify;
   }
 
   start() {
     this.connect(false);
+  }
+
+  setInterval(interval: Interval) {
+    if (interval === this.interval) return;
+    this.interval = interval;
+    this.buffered.clear();
+    this.scheduleIntervalChange();
+    this.notify();
+  }
+
+  private scheduleIntervalChange() {
+    if (this.intervalTimer) clearTimeout(this.intervalTimer);
+    if (this.socket?.readyState !== WebSocket.OPEN) return;
+    this.intervalTimer = setTimeout(() => {
+      this.intervalTimer = null;
+      const socket = this.socket;
+      if (!socket || socket.readyState !== WebSocket.OPEN || this.subscribedInterval === this.interval) return;
+      const name = this.symbol.toLowerCase();
+      try {
+        socket.send(JSON.stringify({ method: "UNSUBSCRIBE", params: [`${name}@kline_${this.subscribedInterval}`], id: ++this.commandId }));
+        socket.send(JSON.stringify({ method: "SUBSCRIBE", params: [`${name}@kline_${this.interval}`], id: ++this.commandId }));
+        this.subscribedInterval = this.interval;
+      } catch {
+        socket.close();
+      }
+    }, 150);
+  }
+
+  hydrateTrades(seed: Trade[], epoch: number) {
+    if (this.disposed || this.epoch !== epoch || this.tradesHydrated) return;
+    this.trades = mergeTrades(seed, this.bufferedTrades);
+    this.tradesHydrated = true;
+    this.bufferedTrades = [];
+    queueTrades({ sessionId: this.id, epoch, trades: this.trades });
   }
 
   bufferedCandles(): StreamCandle[] {
@@ -64,14 +108,21 @@ export class MarketStreamSession {
     this.generation++;
     if (this.reconnectTimer) clearTimeout(this.reconnectTimer);
     this.reconnectTimer = null;
+    if (this.intervalTimer) clearTimeout(this.intervalTimer);
+    this.intervalTimer = null;
     if (this.socket) {
       this.detach(this.socket);
       this.socket.close();
       this.socket = null;
     }
     this.buffered.clear();
+    this.bufferedTrades = [];
+    this.trades = [];
+    this.tradesHydrated = false;
     this.candleListeners.clear();
+    this.ticker = null;
     clearOrderBook();
+    clearTrades();
     this.status = "disconnected";
   }
 
@@ -82,7 +133,8 @@ export class MarketStreamSession {
     this.notify();
 
     const name = this.symbol.toLowerCase();
-    const streams = `${name}@kline_${this.interval}/${name}@ticker/${name}@depth20@100ms`;
+    this.subscribedInterval = this.interval;
+    const streams = `${name}@kline_${this.interval}/${name}@ticker/${name}@depth20@100ms/${name}@trade`;
     let socket: WebSocket;
     try {
       socket = new WebSocket(
@@ -102,6 +154,7 @@ export class MarketStreamSession {
       if (reconnect) this.epoch++;
       this.status = "connected";
       this.notify();
+      if (this.subscribedInterval !== this.interval) this.scheduleIntervalChange();
     };
     socket.onmessage = (message) => {
       if (!this.isCurrent(socket, generation)) return;
@@ -114,13 +167,19 @@ export class MarketStreamSession {
       if (!this.isCurrent(socket, generation)) return;
       this.detach(socket);
       this.socket = null;
+      if (this.intervalTimer) clearTimeout(this.intervalTimer);
+      this.intervalTimer = null;
       if (this.openedAt && Date.now() - this.openedAt >= 30_000) {
         this.attempts = 0;
       }
       this.openedAt = 0;
       this.buffered.clear();
+      this.bufferedTrades = [];
+      this.trades = [];
+      this.tradesHydrated = false;
       this.ticker = null;
       clearOrderBook();
+      clearTrades();
       this.status = "reconnecting";
       this.notify();
       this.scheduleReconnect();
@@ -188,6 +247,17 @@ export class MarketStreamSession {
         epoch: this.epoch,
         snapshot: toBookSnapshot(depth.data),
       });
+    } else if (envelope.data.stream === `${name}@trade`) {
+      const event = tradeEventSchema.safeParse(envelope.data.data);
+      if (!event.success || event.data.s !== this.symbol) return;
+      const trade = fromStreamTrade(event.data);
+      if (!trade) return;
+      if (!this.tradesHydrated) {
+        this.bufferedTrades = mergeTrades(this.bufferedTrades, [trade]);
+      } else {
+        this.trades = mergeTrades(this.trades, [trade]);
+        queueTrades({ sessionId: this.id, epoch: this.epoch, trades: this.trades });
+      }
     }
   }
 
@@ -236,11 +306,7 @@ class MarketStreamManager {
     if (this.idleTimer) clearTimeout(this.idleTimer);
     this.idleTimer = null;
 
-    if (
-      !this.active ||
-      this.active.symbol !== symbol ||
-      this.active.interval !== interval
-    ) {
+    if (!this.active || this.active.symbol !== symbol) {
       this.active?.dispose();
       const session = new MarketStreamSession(
         symbol,
@@ -253,6 +319,7 @@ class MarketStreamManager {
       session.start();
     }
     const session = this.active;
+    session.setInterval(interval);
     this.leases++;
     return () => {
       if (this.active !== session) return;

@@ -11,7 +11,7 @@ type BookRowsProps = {
 export function BookRows({ rows, side, market }: BookRowsProps) {
   const maxCumulative = rows.at(-1)?.cumulativeQuantity ?? 0;
   return (
-    <div className="max-h-48 min-h-0 overflow-y-auto xl:max-h-none xl:flex-1">
+    <div className="min-h-0 flex-1 overflow-y-auto lg:max-h-48 lg:flex-none xl:max-h-none xl:flex-1">
       {rows.map((row) => (
         <div
           key={row.price}
