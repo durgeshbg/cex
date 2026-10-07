@@ -5,16 +5,23 @@ import { useRecentTrades } from "@/hooks/use-recent-trades";
 import { formatPrice, type Market } from "@/models/market";
 import { useTradesStore } from "@/store/trades-store";
 import { gainClass, lossClass } from "@/lib/terminal-styles";
+import { getFixtureTrades } from "@/fixtures/market-data";
+import type { ConnectionStatus } from "@/api/market-stream";
 
-export function RecentTrades({ market, session, epoch }: {
+export function RecentTrades({ market, session, epoch, demo = false, connectionStatus = "disconnected" }: {
   market: Market;
   session: MarketStreamSession | null;
   epoch: number;
+  demo?: boolean;
+  connectionStatus?: ConnectionStatus;
 }) {
   const seed = useRecentTrades(market.symbol, session?.id, epoch);
   const active = useTradesStore((state) => state.active);
-  const trades = active?.sessionId === session?.id && active?.epoch === epoch
-    ? active.trades : null;
+  const trades = demo
+    ? getFixtureTrades(market)
+    : active?.sessionId === session?.id && active?.epoch === epoch
+      ? active.trades
+      : null;
 
   useEffect(() => {
     if (session && seed.data) session.hydrateTrades(seed.data, epoch);
@@ -23,7 +30,9 @@ export function RecentTrades({ market, session, epoch }: {
   return (
     <section className="flex h-full min-h-0 min-w-0 flex-col bg-[#0d1015]">
       <div className="px-4 pt-4 pb-3">
-        <p className="text-[10px] uppercase tracking-widest text-slate-500">Binance Spot · public trades</p>
+        <p className="text-[10px] uppercase tracking-widest text-slate-500">
+          {demo ? "Offline fixture data" : "Binance Spot · public trades"}
+        </p>
         <h2 className="mt-1 text-sm font-semibold text-slate-100">Recent trades</h2>
       </div>
       <div className="grid grid-cols-[1fr_.8fr_.75fr_.7fr] gap-2 px-4 pb-2 text-[10px] text-slate-500">
@@ -53,7 +62,13 @@ export function RecentTrades({ market, session, epoch }: {
           <Button variant="outline" size="sm" onClick={() => seed.refetch()}>Retry</Button>
         </div>
       ) : (
-        <p className="px-4 py-6 text-xs text-slate-500" role="status">Waiting for recent trades…</p>
+        <p className="px-4 py-6 text-xs text-slate-500" role="status">
+          {connectionStatus === "reconnecting" || connectionStatus === "disconnected"
+            ? "Trades stale — waiting for fresh data…"
+            : seed.isPending
+              ? "Loading recent trades…"
+              : "Waiting for live trades…"}
+        </p>
       )}
     </section>
   );

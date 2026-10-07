@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from "react";
+import { useLayoutEffect, useMemo, useRef } from "react";
 import {
   CandlestickSeries,
   ColorType,
@@ -13,12 +13,16 @@ import { useKlines } from "@/hooks/use-klines";
 import { mergeChartKlines } from "@/models/klines";
 import type { Market } from "@/models/market";
 import type { Interval } from "@/store/market-store";
+import type { ConnectionStatus } from "@/api/market-stream";
+import { getDemoKlines } from "@/fixtures/market-data";
 
 type CandlestickChartProps = {
   market: Market;
   interval: Interval;
-  session: MarketStreamSession;
+  session: MarketStreamSession | null;
   epoch: number;
+  connectionStatus: ConnectionStatus;
+  demo?: boolean;
 };
 
 function showRecentCandles(chart: IChartApi, count: number, width: number) {
@@ -29,7 +33,14 @@ function showRecentCandles(chart: IChartApi, count: number, width: number) {
   });
 }
 
-export function CandlestickChart({ market, interval, session, epoch }: CandlestickChartProps) {
+export function CandlestickChart({
+  market,
+  interval,
+  session,
+  epoch,
+  connectionStatus,
+  demo = false,
+}: CandlestickChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const candlesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -37,14 +48,24 @@ export function CandlestickChart({ market, interval, session, epoch }: Candlesti
   const barCountRef = useRef(0);
   const lastTimeRef = useRef<number | null>(null);
   const syncedRef = useRef(false);
-  const klines = useKlines(market.symbol, interval, session.id, epoch);
-  const data =
+  const klines = useKlines(
+    market.symbol,
+    interval,
+    session?.id ?? 0,
+    epoch,
+    !demo && session !== null,
+  );
+  const queryData =
     klines.data?.symbol === market.symbol &&
     klines.data.interval === interval &&
-    klines.data.sessionId === session.id &&
+    klines.data.sessionId === session?.id &&
     klines.data.epoch === epoch
       ? klines.data
       : null;
+  const data = useMemo(
+    () => demo ? getDemoKlines(market, interval) : queryData,
+    [demo, market, interval, queryData],
+  );
 
   useLayoutEffect(() => {
     const container = containerRef.current;
@@ -91,19 +112,28 @@ export function CandlestickChart({ market, interval, session, epoch }: Candlesti
     candlesRef.current = candles;
     volumeRef.current = volume;
 
-    const observer = new ResizeObserver(([entry]) => {
-      chart.applyOptions({
-        width: entry.contentRect.width,
-        height: entry.contentRect.height,
-      });
+    const resizeChart = (width: number, height: number) => {
+      chart.applyOptions({ width, height });
       if (barCountRef.current) {
-        showRecentCandles(chart, barCountRef.current, entry.contentRect.width);
+        showRecentCandles(chart, barCountRef.current, width);
       }
-    });
-    observer.observe(container);
+    };
+    const fallbackResize = () => {
+      resizeChart(container.clientWidth, container.clientHeight);
+    };
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(([entry]) => {
+        if (entry) resizeChart(entry.contentRect.width, entry.contentRect.height);
+      });
+      observer.observe(container);
+    } else {
+      window.addEventListener("resize", fallbackResize);
+    }
 
     return () => {
-      observer.disconnect();
+      observer?.disconnect();
+      window.removeEventListener("resize", fallbackResize);
       chartRef.current = null;
       candlesRef.current = null;
       volumeRef.current = null;
@@ -117,6 +147,7 @@ export function CandlestickChart({ market, interval, session, epoch }: Candlesti
   useLayoutEffect(() => {
     syncedRef.current = false;
     lastTimeRef.current = null;
+    if (!session) return;
     return session.subscribeCandles(({ candle, volume }) => {
       if (!syncedRef.current || lastTimeRef.current === null || candle.time < lastTimeRef.current) return;
       candlesRef.current?.update(candle);
@@ -146,8 +177,9 @@ export function CandlestickChart({ market, interval, session, epoch }: Candlesti
         minMove: market.priceTick,
       },
     });
-    if (data && !klines.isError) {
-      const merged = mergeChartKlines(data, session.bufferedCandles());
+    if (data && (demo || !klines.isError)) {
+      const merged =
+        demo || !session ? data : mergeChartKlines(data, session.bufferedCandles());
       candles.setData(merged.candles);
       volume.setData(merged.volume);
       barCountRef.current = merged.candles.length;
@@ -170,10 +202,11 @@ export function CandlestickChart({ market, interval, session, epoch }: Candlesti
     interval,
     session,
     epoch,
+    demo,
   ]);
 
-  const loading = klines.isPending || (!data && !klines.isError);
-  const empty = data?.candles.length === 0;
+  const loading = !demo && (klines.isPending || (!data && !klines.isError));
+  const empty = !demo && data?.candles.length === 0;
 
   return (
     <div className="flex h-full min-h-0 flex-col">
@@ -183,7 +216,16 @@ export function CandlestickChart({ market, interval, session, epoch }: Candlesti
           className="h-full w-full"
           aria-label={`${market.symbol} ${interval} candlestick and volume chart`}
         />
-        {(loading || klines.isError || empty) && (
+        {data && !loading && !klines.isError && !empty && (
+          <p className="absolute top-2 left-2 rounded bg-slate-950/80 px-2 py-1 text-[10px] text-slate-400">
+            {demo
+              ? "Offline fixture data"
+              : connectionStatus === "connected"
+                ? "Fresh snapshot · stream connected"
+                : "Stale snapshot · waiting for stream"}
+          </p>
+        )}
+        {(loading || (!demo && klines.isError) || empty) && (
           <div
             className="absolute inset-0 grid place-content-center gap-3 bg-[#0d1015] px-4 text-center text-sm text-slate-400"
             role="status"
@@ -195,7 +237,7 @@ export function CandlestickChart({ market, interval, session, epoch }: Candlesti
                   ? "No candles are available for this market."
                   : "Candles unavailable."}
             </p>
-            {klines.isError && (
+            {!demo && klines.isError && (
               <>
                 <p className="max-w-sm text-xs text-slate-500">
                   {klines.error.message}

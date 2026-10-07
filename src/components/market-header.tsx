@@ -7,10 +7,12 @@ export function MarketHeader({
   market,
   status,
   ticker,
+  demo = false,
 }: {
   market?: Market;
   status: "loading" | "ready" | "empty" | "error";
   ticker?: LiveTicker | null;
+  demo?: boolean;
 }) {
   const live = ticker?.symbol === market?.symbol ? ticker : null;
   const change = live
@@ -26,7 +28,9 @@ export function MarketHeader({
     <header className="flex flex-wrap items-center justify-between gap-x-6 gap-y-4 border-b border-slate-800 bg-[#0b0e13] px-4 py-4 sm:px-5">
       <div>
         <p className={labelClass}>
-          Spot · Binance {live ? "live ticker" : "REST snapshot"}
+          {demo
+            ? "Offline fixture demo"
+            : "Spot · Binance " + (live ? "live ticker" : "REST snapshot")}
         </p>
         <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-100">
           {market ? (

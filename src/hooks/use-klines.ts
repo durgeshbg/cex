@@ -4,9 +4,16 @@ import { retryDelay, shouldRetry } from "@/api/query-retry";
 import { toChartKlines } from "@/models/klines";
 import type { Interval } from "@/store/market-store";
 
-export function useKlines(symbol: string, interval: Interval, sessionId: number, epoch: number) {
+export function useKlines(
+  symbol: string,
+  interval: Interval,
+  sessionId: number,
+  epoch: number,
+  enabled = true,
+) {
   return useQuery({
     queryKey: ["binance", "klines", symbol, interval, sessionId, epoch],
+    enabled,
     queryFn: async ({ signal }) => ({
       symbol,
       interval,

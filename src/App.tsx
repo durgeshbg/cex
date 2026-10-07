@@ -8,11 +8,13 @@ import { RecentTrades } from "@/components/recent-trades";
 import { useMarkets } from "@/hooks/use-markets";
 import { useActiveMarketStream } from "@/hooks/use-active-market-stream";
 import { intervals, useMarketStore } from "@/store/market-store";
+import { demoMarkets } from "@/fixtures/market-data";
 
 function App() {
   const [mobilePanel, setMobilePanel] = useState<
     "markets" | "chart" | "book" | "trades"
   >("chart");
+  const [offlineDemo, setOfflineDemo] = useState(false);
   const { markets, status, error, retry } = useMarkets();
   const selectedSymbol = useMarketStore((state) => state.selectedSymbol);
   const selectedInterval = useMarketStore((state) => state.selectedInterval);
@@ -24,17 +26,26 @@ function App() {
   useEffect(() => {
     if (status === "ready") reconcileMarkets(markets.map((item) => item.symbol));
   }, [status, markets, reconcileMarkets]);
+  const availableMarkets = offlineDemo ? demoMarkets : markets;
   const market =
-    markets.find((item) => item.symbol === selectedSymbol) ??
-    markets.find((item) => item.symbol === "BTCUSDT") ??
-    markets[0];
-  const stream = useActiveMarketStream(market?.symbol, selectedInterval);
+    availableMarkets.find((item) => item.symbol === selectedSymbol) ??
+    availableMarkets.find((item) => item.symbol === "BTCUSDT") ??
+    availableMarkets[0];
+  const stream = useActiveMarketStream(
+    offlineDemo ? undefined : market?.symbol,
+    selectedInterval,
+  );
   const connectionLabel =
     stream.status[0].toUpperCase() + stream.status.slice(1);
+  const liveUnavailable =
+    status === "error" ||
+    status === "empty" ||
+    (stream.session !== null &&
+      (stream.status === "disconnected" || stream.status === "reconnecting"));
 
   return (
     <main className="min-h-svh bg-[#090b0f] text-slate-200 [font-variant-numeric:tabular-nums] lg:grid lg:grid-cols-[220px_minmax(0,1fr)] xl:grid-cols-[248px_minmax(0,1fr)_316px]">
-      <header className="flex h-14 items-center justify-between border-b border-slate-800 bg-[#0d1015] px-4 lg:col-span-2 xl:col-span-3">
+      <header className="flex min-h-14 flex-wrap items-center justify-between gap-y-2 border-b border-slate-800 bg-[#0d1015] px-4 py-2 lg:col-span-2 xl:col-span-3">
         <div className="flex items-center gap-2 text-sm font-bold text-amber-400">
           <span className="grid size-6 place-items-center border border-amber-400 text-xs">
             B
@@ -45,8 +56,20 @@ function App() {
           <span
             className={`size-2 rounded-full ${stream.status === "connected" ? "bg-emerald-400" : stream.status === "disconnected" ? "bg-rose-400" : "bg-amber-400"}`}
           />
-          {connectionLabel}{" "}
-          <span className="hidden sm:inline">· Binance Spot stream</span>
+          <span aria-label={offlineDemo ? "Offline fixture demo" : `Binance Spot stream ${stream.status}`}>
+            {offlineDemo ? "Offline fixture demo" : connectionLabel}
+            <span className="hidden sm:inline"> · Binance Spot stream</span>
+          </span>
+          {(offlineDemo || liveUnavailable) && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="shrink-0"
+              onClick={() => setOfflineDemo(!offlineDemo)}
+            >
+              {offlineDemo ? "Exit offline demo" : "Use offline fixture demo"}
+            </Button>
+          )}
         </div>
       </header>
 
@@ -70,20 +93,25 @@ function App() {
 
       <div className={`min-w-0 ${mobilePanel === "markets" ? "block" : "hidden"} lg:block`}>
         <MarketSidebar
-          markets={markets}
+          markets={availableMarkets}
           selectedSymbol={market?.symbol ?? selectedSymbol}
           onSelect={(symbol) => {
             setSelectedSymbol(symbol);
             setMobilePanel("chart");
           }}
-          status={status}
-          error={error}
+          status={offlineDemo ? "ready" : status}
+          error={offlineDemo ? null : error}
           onRetry={retry}
         />
       </div>
 
       <div className={`min-w-0 ${mobilePanel === "chart" ? "block" : "hidden"} lg:block`}>
-        <MarketHeader market={market} status={status} ticker={stream.ticker} />
+        <MarketHeader
+          market={market}
+          status={offlineDemo ? "ready" : status}
+          ticker={stream.ticker}
+          demo={offlineDemo}
+        />
         <section className="bg-[#0d1015]">
           <div className="flex h-12 items-center justify-between border-b border-slate-800 px-3 sm:px-4">
             <div className="flex gap-1" aria-label="Chart interval">
@@ -104,16 +132,22 @@ function App() {
               <span className="hidden sm:inline">
                 Candles · {selectedInterval} ·{" "}
               </span>
-              {stream.status === "connected" ? "Live candles" : "REST snapshot"}
+              {offlineDemo
+                ? "Fixture candles"
+                : stream.status === "connected"
+                  ? "Stream open"
+                  : "REST snapshot"}
             </span>
           </div>
           <div className="h-[300px] w-full sm:h-[400px] lg:h-[calc(100svh-174px)] lg:min-h-[360px]">
-            {market && stream.session?.interval === selectedInterval ? (
+            {market && (offlineDemo || stream.session?.interval === selectedInterval) ? (
               <CandlestickChart
                 market={market}
                 interval={selectedInterval}
-                session={stream.session}
+                session={offlineDemo ? null : stream.session}
                 epoch={stream.epoch}
+                connectionStatus={stream.status}
+                demo={offlineDemo}
               />
             ) : (
               <div className="grid h-full place-items-center text-sm text-slate-500">
@@ -139,10 +173,17 @@ function App() {
                 sessionId={stream.session?.id}
                 epoch={stream.epoch}
                 connectionStatus={stream.status}
+                demo={offlineDemo}
               />
             </div>
             <div className={`min-h-0 ${mobilePanel === "trades" ? "block" : "hidden"} lg:block`}>
-              <RecentTrades market={market} session={stream.session} epoch={stream.epoch} />
+              <RecentTrades
+                market={market}
+                session={offlineDemo ? null : stream.session}
+                epoch={stream.epoch}
+                demo={offlineDemo}
+                connectionStatus={stream.status}
+              />
             </div>
           </>
         ) : (
