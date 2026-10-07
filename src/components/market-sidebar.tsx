@@ -74,7 +74,7 @@ export function MarketSidebar({
         <span className="text-right">Last price</span>
         <span className="text-right">24h</span>
       </div>
-      <div className="grid max-h-56 min-h-0 grid-cols-2 overflow-y-auto sm:max-h-[420px] sm:grid-cols-1 lg:max-h-none lg:flex-1">
+      <div className="grid max-h-56 min-h-0 auto-rows-min content-start grid-cols-2 overflow-y-auto sm:max-h-[420px] sm:grid-cols-1 lg:max-h-none lg:flex-1">
         {status === "loading" && (
           <p className="col-span-full px-4 py-6 text-center text-xs text-slate-500">
             Loading Binance markets…

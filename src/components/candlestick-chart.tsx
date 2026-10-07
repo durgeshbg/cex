@@ -1,25 +1,42 @@
-import { useEffect, useRef } from "react";
+import { useLayoutEffect, useRef } from "react";
 import {
   CandlestickSeries,
   ColorType,
   createChart,
-  type UTCTimestamp,
+  HistogramSeries,
+  type IChartApi,
+  type ISeriesApi,
 } from "lightweight-charts";
-import { fixtureCandles } from "@/fixtures/market-data";
+import { Button } from "@/components/ui/button";
+import { useKlines } from "@/hooks/use-klines";
 import type { Market } from "@/models/market";
+import type { Interval } from "@/store/market-store";
 
-type CandlestickChartProps = { market: Market; interval: string };
+type CandlestickChartProps = { market: Market; interval: Interval };
+
+function showRecentCandles(chart: IChartApi, count: number, width: number) {
+  const visibleCount = Math.max(30, Math.min(120, Math.floor(width / 8)));
+  chart.timeScale().setVisibleLogicalRange({
+    from: Math.max(0, count - visibleCount),
+    to: count + 2,
+  });
+}
 
 export function CandlestickChart({ market, interval }: CandlestickChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const chartRef = useRef<IChartApi | null>(null);
+  const candlesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
+  const volumeRef = useRef<ISeriesApi<"Histogram"> | null>(null);
+  const barCountRef = useRef(0);
+  const klines = useKlines(market.symbol, interval);
+  const data =
+    klines.data?.symbol === market.symbol && klines.data.interval === interval
+      ? klines.data
+      : null;
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const container = containerRef.current;
-    if (!container) return undefined;
-    const lastPrice = market.lastPrice;
-    const intervalSeconds =
-      { "1m": 60, "5m": 300, "15m": 900, "1h": 3600, "1d": 86400 }[interval] ??
-      60;
+    if (!container) return;
 
     const chart = createChart(container, {
       width: container.clientWidth,
@@ -27,6 +44,7 @@ export function CandlestickChart({ market, interval }: CandlestickChartProps) {
       layout: {
         background: { type: ColorType.Solid, color: "#0d1015" },
         textColor: "#657083",
+        attributionLogo: true,
       },
       grid: {
         vertLines: { color: "#222834" },
@@ -39,48 +57,134 @@ export function CandlestickChart({ market, interval }: CandlestickChartProps) {
         horzLine: { color: "#3b4453" },
       },
     });
-    const series = chart.addSeries(CandlestickSeries, {
+    const candles = chart.addSeries(CandlestickSeries, {
       upColor: "#25bb8b",
       downColor: "#f05561",
       borderVisible: false,
       wickUpColor: "#25bb8b",
       wickDownColor: "#f05561",
-      priceFormat: {
-        type: "price",
-        precision: market.pricePrecision,
-        minMove: market.priceTick,
-      },
     });
-    series.setData(
-      fixtureCandles.map(([open, high, low, close], index) => ({
-        time: (1_728_000_000 + index * intervalSeconds) as UTCTimestamp,
-        open: (open * lastPrice) / 67842.18,
-        high: (high * lastPrice) / 67842.18,
-        low: (low * lastPrice) / 67842.18,
-        close: (close * lastPrice) / 67842.18,
-      })),
-    );
-    chart.timeScale().fitContent();
+    candles
+      .priceScale()
+      .applyOptions({ scaleMargins: { top: 0.08, bottom: 0.25 } });
+    const volume = chart.addSeries(HistogramSeries, {
+      priceFormat: { type: "volume" },
+      priceScaleId: "",
+      lastValueVisible: false,
+      priceLineVisible: false,
+    });
+    volume.priceScale().applyOptions({ scaleMargins: { top: 0.8, bottom: 0 } });
+
+    chartRef.current = chart;
+    candlesRef.current = candles;
+    volumeRef.current = volume;
 
     const observer = new ResizeObserver(([entry]) => {
       chart.applyOptions({
         width: entry.contentRect.width,
         height: entry.contentRect.height,
       });
-      chart.timeScale().fitContent();
+      if (barCountRef.current) {
+        showRecentCandles(chart, barCountRef.current, entry.contentRect.width);
+      }
     });
     observer.observe(container);
+
     return () => {
       observer.disconnect();
+      chartRef.current = null;
+      candlesRef.current = null;
+      volumeRef.current = null;
+      barCountRef.current = 0;
       chart.remove();
     };
-  }, [market, interval]);
+  }, []);
+
+  useLayoutEffect(() => {
+    const chart = chartRef.current;
+    const candles = candlesRef.current;
+    const volume = volumeRef.current;
+    if (!chart || !candles || !volume) return;
+
+    candles.setData([]);
+    volume.setData([]);
+    barCountRef.current = 0;
+    candles.applyOptions({
+      priceFormat: {
+        type: "price",
+        precision: market.pricePrecision,
+        minMove: market.priceTick,
+      },
+    });
+    if (data && !klines.isError) {
+      candles.setData(data.candles);
+      volume.setData(data.volume);
+      barCountRef.current = data.candles.length;
+      if (barCountRef.current) {
+        showRecentCandles(
+          chart,
+          barCountRef.current,
+          containerRef.current?.clientWidth ?? 0,
+        );
+      }
+    }
+  }, [
+    data,
+    klines.isError,
+    market.pricePrecision,
+    market.priceTick,
+    market.symbol,
+    interval,
+  ]);
+
+  const loading = klines.isPending || (!data && !klines.isError);
+  const empty = data?.candles.length === 0;
 
   return (
-    <div
-      className="h-full w-full"
-      ref={containerRef}
-      aria-label={`${market.symbol} ${interval} fixture candlestick chart`}
-    />
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="relative min-h-0 flex-1">
+        <div
+          ref={containerRef}
+          className="h-full w-full"
+          aria-label={`${market.symbol} ${interval} candlestick and volume chart`}
+        />
+        {(loading || klines.isError || empty) && (
+          <div
+            className="absolute inset-0 grid place-content-center gap-3 bg-[#0d1015] px-4 text-center text-sm text-slate-400"
+            role="status"
+          >
+            <p>
+              {loading
+                ? "Loading candles…"
+                : empty
+                  ? "No candles are available for this market."
+                  : "Candles unavailable."}
+            </p>
+            {klines.isError && (
+              <>
+                <p className="max-w-sm text-xs text-slate-500">
+                  {klines.error.message}
+                </p>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => void klines.refetch()}
+                >
+                  Retry
+                </Button>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+      <a
+        href="https://www.tradingview.com/"
+        target="_blank"
+        rel="noreferrer"
+        className="shrink-0 border-t border-slate-800 px-3 py-1 text-[10px] text-slate-500 hover:text-slate-300"
+      >
+        TradingView Lightweight Charts™ · © 2025 TradingView, Inc.
+      </a>
+    </div>
   );
 }

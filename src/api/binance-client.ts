@@ -1,4 +1,9 @@
-import { exchangeInfoSchema, tickers24hrSchema } from "@/api/binance-types";
+import {
+  exchangeInfoSchema,
+  klinesSchema,
+  tickers24hrSchema,
+} from "@/api/binance-types";
+import type { Interval } from "@/store/market-store";
 
 const BASE_URL = "https://data-api.binance.vision";
 
@@ -72,4 +77,13 @@ export async function getExchangeInfo(signal: AbortSignal) {
 
 export async function getTickers24hr(signal: AbortSignal) {
   return tickers24hrSchema.parse(await getJson("/api/v3/ticker/24hr", signal));
+}
+
+export async function getKlines(
+  symbol: string,
+  interval: Interval,
+  signal: AbortSignal,
+) {
+  const params = new URLSearchParams({ symbol, interval, limit: "500" });
+  return klinesSchema.parse(await getJson(`/api/v3/klines?${params}`, signal));
 }

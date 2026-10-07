@@ -70,10 +70,8 @@ function App() {
               ))}
             </div>
             <span className="shrink-0 text-[10px] text-slate-500">
-              <span className="hidden sm:inline">
-                Candles · {selectedInterval} ·{" "}
-              </span>
-              Fixture
+              <span className="hidden sm:inline">Candles · {selectedInterval} · </span>
+              REST snapshot
             </span>
           </div>
           <div className="h-[300px] w-full sm:h-[400px] lg:h-[calc(100svh-174px)] lg:min-h-[360px]">
